@@ -1,0 +1,130 @@
+.TH smartlog 3 "26 Oct 2017"
+.SH NAME
+smartlog \- a logging library for BaSH
+.SH DESCRIPTION
+This library has auxiliary functions for BaSH scripting and allows for easy self-documentation,
+safety checks, and aesthetic output for BaSH scripts.  The library is contained in the file
+smartlog.sh and is typically placed in the folder $HOME/.sh/.  To include the library, use:
+
+  source "$HOME/.sh/smartlog.sh"
+
+.SH FUNCTIONS
+.TP
+.BR down " " (no " " argument)
+go down a level
+.TP
+.BR up " " (no " " argument)
+go up a level
+.TP
+.BR typeout  " " \fIstring\fR
+type out the string
+.TP
+.BR die  " " \fIstring\fR
+give fatal error message
+.TP
+.BR error  " " \fIstring\fR
+give error message
+.TP
+.BR optip  " " \fIstring\fR
+option tip
+.TP
+.BR tip  " " \fIstring\fR
+give tip
+.TP
+.BR endtip  " " \fIstring\fR
+give tip at end
+.TP
+.BR checklog " " \fI\fR
+check if log exists
+.TP
+.BR typeit  " " \fIstring\fR
+type string to stdout
+.TP
+.BR logtypeit  " " \fIstring\fR
+type string to log 
+.TP
+.BR log  " " \fIstring\fR
+log message to stdout
+.TP
+.BR nlog  " " \fIstring\fR
+log message
+.TP
+.BR tlog " " \fIstring\fR
+log message as typeout
+.TP
+.BR helper  " " \fIstring\fR
+print helper string
+.TP
+.BR prompt  " " \fIstring\fR
+prompt for response
+.TP
+.BR prompt_default   " " \fIstring\fR
+prompt for response, with default
+.TP
+.BR yesno   " " \fIstring\fR
+ask yes/no question
+.TP
+.BR warn  " " \fIstring\fR
+give warning message
+.TP
+.BR alert  " " \fIstring\fR
+give alert message
+.TP
+.BR ok " " (no " " argument)
+give [  OK  ] tag
+.TP
+.BR fail " " (no " " argument)
+give [ FAIL ] tag
+.TP
+.BR check_cmd   " " \fIstring\fR
+check if cmd exists
+.TP
+.BR check_dir   " " \fIstring\fR
+check if dir exists
+.TP
+.BR require_dir   " " \fIstring\fR
+require that dir exists
+.TP
+.BR check_file   " " \fIstring\fR
+check that file exists
+.TP
+.BR require_file   " " \fIstring\fR
+require that file exists
+.TP
+.BR check_var   " " \fIstring\fR
+check that var is non-empty
+.TP
+.BR require_var   " " \fIstring\fR
+require that var is non-empty
+.TP
+.BR require_var_file   " " \fIstring\fR
+require that file stored in var exists
+.TP
+.BR require_var_dir   " " \fIstring\fR
+require that dir stored in var exists
+.TP
+.BR require_var_dir_default   " " \fIstring\fR
+require that dir stored in var exists, with default if not
+.TP
+.BR require_var_file_default   " " \fIstring\fR
+require that file stored in var exists, with default if not
+.TP
+.BR s_if  " " \fIstring\fR
+execute if condition true
+.TP
+.BR s_exn   " " \fIstring\fR
+execute command safely
+.TP
+.BR s_ex   " " \fIstring\fR
+execute command safely
+.TP
+.BR offer_to_create  " " \fIstring\fR
+offer to create directory
+.TP
+.BR reset_logs  " " \fIstring\fR
+reset the logs
+.TP
+.BR cleanup_empty  " " \fIstring\fR
+if dir is empty, clean it
+.SH AUTHOR
+Written by Dominic Dimico <dominic.dimico@gmail.com>.
