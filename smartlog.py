@@ -9,7 +9,7 @@ class Smartlog():
     fd = None;
 
     def __init__(self, filename="/dev/stdout"):
-        try: self.fd = open(filename, "w+");
+        try: self.fd = open(filename, "a");
         except: print "File Exception"
         self.t = Terminal(stream=self.fd, force_styling=True);
 
@@ -58,6 +58,11 @@ class Smartlog():
     def log(self, msg):
         self.fd.write(self.t.green("*")), 
         self.fd.write(" %s..." % msg),
+
+    # Print an log message, but no OK or FAIL box.
+    def logn(self, msg):
+        self.log(msg);
+        self.fd.write("\n");
 
     # Print an log message, with OK.
     def logok(self, msg):
