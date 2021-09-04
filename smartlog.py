@@ -1,5 +1,6 @@
 from   blessings import Terminal
-from   sys       import stdin
+
+import sys
 import os
 
 
@@ -16,7 +17,7 @@ class Smartlog():
     # Print an alert message.
     def alert(self, msg):
         self.fd.write(self.t.red("*")), 
-        self.fd.write(self.t.bold("Alert:")),
+        self.fd.write(self.t.bold(" Alert:")),
         self.fd.write(" %s!" % msg),
         self.rok()
 
@@ -26,13 +27,25 @@ class Smartlog():
         self.fd.write(self.t.magenta("*")), 
         self.fd.write(self.t.bold(" %s: " % msg)),
         self.fd.flush();
-        ret = stdin.readline();
+        ret = sys.stdin.readline();
         return ret.rstrip().lstrip();
+
+
+    # Print an alert message.
+    def yesno(self, msg):
+        self.fd.write(self.t.magenta("*")), 
+        self.fd.write(self.t.bold(" %s? (y/n): " % msg)),
+        self.fd.flush();
+        ret = sys.stdin.readline();
+        if ret.rstrip().lstrip() == 'y':
+           return True;
+        else: return False;
+
 
     # Print a WARN message.
     def warn(self, msg):
         self.fd.write(self.t.yellow("*")), 
-        self.fd.write(self.t.bold("Warning:")),
+        self.fd.write(self.t.bold(" Warning:")),
         self.fd.write(" %s." % msg),
         self.warnok()
 
@@ -194,34 +207,77 @@ class Smartlog():
             self.fail()
 
 
-    # Gather data into a dictionary
-    def gather(self, keys):
-        d = {};
+    # Gather data into a dictionary, line by line,
+    # with prompts
+    def gather(self, keys, xs=[], d={}):
         l = max([len(k) for k in keys]);
-        for key in keys:
+        i = 0;
+        j = 0;
+        # xs is an optional starter list we can (partially)
+        # load from
+        for i in range(len(xs)):
+            key = keys[i];
             sp = ' ' * (l - len(key));
+            x = self.log("%s%s  : %s" % (key, sp, x));
+            if i >= len(keys):
+               self.warn("More inputs than keys");
+               return d;
+            d[i] = x;
+        for j in range(i, len(keys)):
+            key = keys[j];
+            sp = ' ' * (l - len(key));
+            if key in d.keys():
+               self.info("%s%s  : %s" % (key, sp, d[key]));
             x = self.prompt("%s%s  " % (key, sp));
-            d[key] = x;
+            if not x: pass;
+            else:     d[key] = x;
         return d;
 
-    # Gather words into a dictionary
-    def gatherwords(self, keys):
-        d = {};
+
+    # Gather words into a dictionary.  Prompts may be given
+    # one at a time for each word, or all words may be entered
+    # on a single line.
+    #
+    #   keys - keys to gather, in order
+    #   y    - starter list
+    #
+    def gatherwords(self, keys, xs=None, d={}):
         l = max([len(k) for k in keys]);
         i = 0;
         while True:
+            # Columnate the keys and prompts with spaces (sp)
             sp = ' ' * (l - len(keys[i]));
-            x = self.prompt("%s%s  " % (keys[i], sp));
-            y = x.split(" ");
-            n = i + len(y);
+            if not xs:
+              x = self.prompt("%s%s  " % (keys[i], sp));
+              xs = x.split(" ");
+            n = i + len(xs);
             k = 0;
+            # Loop over ith key to i+size of input (y) to copy in
             for j in range(i, n):
-                d[keys[j]] = y[k];
+                d[keys[j]] = xs[k];
                 i = i + 1;
                 k = k + 1;
-            if i >= len(y)-1: 
-               break;
+                if i >= len(keys): 
+                   d['xs'] = xs[k:];
+                   return d;
+            xs = None;
         return d;
 
-    def tabulate(self, data):
-        pass
+
+    def tabulate(self, keys, data):
+        colwidth  = 10;
+        colspace  = 2;
+        textwidth = colwidth - colspace;
+        for k in keys:
+            nsp = colspace if textwidth < len(k) else colwidth-len(k)
+            sp  = ' ' * nsp;
+            self.fd.write(self.t.yellow("%s%s" % (k[:textwidth], sp)));
+        self.fd.write("\n");
+        for row in data:
+            for k in keys:
+                el = str(row[k]);
+                nsp = colspace if textwidth < len(el) else colwidth-len(el)
+                sp = ' ' * nsp;
+                self.fd.write("%s%s" % (el[:textwidth], sp));
+            self.fd.write("\n");
+
