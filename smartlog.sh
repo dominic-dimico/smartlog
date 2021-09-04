@@ -268,7 +268,7 @@ prompt () {
 		fi
     if [ "$SILENT" == "false" ]
     then
-      play -qv .1 $PROMPT_SOUND_FILE
+      play -qv .1 $PROMPT_SOUND_FILE 2> /dev/null
     fi
 		read
 	fi
@@ -406,7 +406,7 @@ ok() {
 	flag "[${GREEN}  OK  ${NORMAL}]"
   if [ "$SILENT" == "false" ]
   then
-    play -qv .1 $OK_SOUND_FILE
+    play -qv .1 $OK_SOUND_FILE 2> /dev/null
   fi
 }
 
@@ -419,7 +419,7 @@ fail() {
 	flag "[${RED} FAIL ${NORMAL}]"
   if [ "$SILENT" == "false" ]
   then
-    play -qv .1 $FAIL_SOUND_FILE
+    play -qv .1 $FAIL_SOUND_FILE 2> /dev/null
   fi
 	success=0;
 }
@@ -448,7 +448,7 @@ warn_ok () {
 	flag "[${YELLOW} WARN ${NORMAL}]"
   if [ "$SILENT" == "false" ]
   then
-    play -qv .1 $WARN_SOUND_FILE
+    play -qv .1 $WARN_SOUND_FILE 2> /dev/null
   fi
 }
 
@@ -460,7 +460,8 @@ info_ok () {
 	flag "[${BLUE} INFO ${NORMAL}]"
   if [ "$SILENT" == "false" ]
   then
-    play -qv .1 $INFO_SOUND_FILE
+    play -qv .1 $INFO_SOUND_FILE 2> /dev/null
+
   fi
 }
 
@@ -646,7 +647,7 @@ s_exn () {
 s_ex () {
 	log "$1";
 	$2 2>> $ERRORLOG 1>> $OUTPUTLOG &
-  play -qv .1 $SEX_SOUND_FILE
+  play -qv .1 $SEX_SOUND_FILE 2> /dev/null
 	spinner $!
 	#wait $!
 	if [ $? == "0" ]

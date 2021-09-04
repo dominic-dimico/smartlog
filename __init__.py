@@ -1,1 +1,1 @@
-from smartlog import *
+from .smartlog import *

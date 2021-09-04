@@ -10,7 +10,7 @@ class Smartlog():
 
     def __init__(self, filename="/dev/stdout"):
         try: self.fd = open(filename, "a");
-        except: print "File Exception"
+        except: print("File Exception");
         self.t = Terminal(stream=self.fd, force_styling=True);
 
     # Print an alert message.
@@ -25,8 +25,9 @@ class Smartlog():
     def prompt(self, msg):
         self.fd.write(self.t.magenta("*")), 
         self.fd.write(self.t.bold(" %s: " % msg)),
+        self.fd.flush();
         ret = stdin.readline();
-        return reself.t.rstrip().lstrip();
+        return ret.rstrip().lstrip();
 
     # Print a WARN message.
     def warn(self, msg):
@@ -51,6 +52,13 @@ class Smartlog():
     def tip(self, msg):
         self.fd.write(self.t.blue("*")), 
         self.fd.write(" %s." % msg),
+        self.infook()
+
+
+    # Print an INFO message.
+    def info(self, msg):
+        self.fd.write(self.t.blue("*")), 
+        self.fd.write(" %s" % msg),
         self.infook()
 
 
@@ -152,7 +160,7 @@ class Smartlog():
 
 
     # Check if directory exists.
-    def check_dir(self, name):
+    def checkdir(self, name):
         str = ' '.join(["Checking if directory",name,"exists"])
         self.log(str)
         if os.path.isdir(name):
@@ -164,7 +172,7 @@ class Smartlog():
 
 
     # Check if file exists.
-    def check_file(self, name):
+    def checkfile(self, name):
         str = ' '.join(["Checking if file",name,"exists"])
         self.log(str)
         if os.path.isfile(name):
@@ -176,7 +184,7 @@ class Smartlog():
 
 
     # Check if environment variable is set
-    def check_var(self, name):
+    def checkvar(self, name):
         val = os.getkey(name)
         str = ' '.join(["Checking if variable",name,"is set"])
         self.log(str)
@@ -185,3 +193,35 @@ class Smartlog():
         else:
             self.fail()
 
+
+    # Gather data into a dictionary
+    def gather(self, keys):
+        d = {};
+        l = max([len(k) for k in keys]);
+        for key in keys:
+            sp = ' ' * (l - len(key));
+            x = self.prompt("%s%s  " % (key, sp));
+            d[key] = x;
+        return d;
+
+    # Gather words into a dictionary
+    def gatherwords(self, keys):
+        d = {};
+        l = max([len(k) for k in keys]);
+        i = 0;
+        while True:
+            sp = ' ' * (l - len(keys[i]));
+            x = self.prompt("%s%s  " % (keys[i], sp));
+            y = x.split(" ");
+            n = i + len(y);
+            k = 0;
+            for j in range(i, n):
+                d[keys[j]] = y[k];
+                i = i + 1;
+                k = k + 1;
+            if i >= len(y)-1: 
+               break;
+        return d;
+
+    def tabulate(self, data):
+        pass
