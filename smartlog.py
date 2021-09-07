@@ -1,5 +1,4 @@
 from   blessings import Terminal
-
 import sys
 import os
 
@@ -9,10 +8,27 @@ class Smartlog():
     t  = None;
     fd = None;
 
+
     def __init__(self, filename="/dev/stdout"):
         try: self.fd = open(filename, "a");
         except: print("File Exception");
         self.t = Terminal(stream=self.fd, force_styling=True);
+
+
+    # Be silent
+    def quiet(self):
+        self.fd = open('/dev/null', "a");
+
+
+    # Continue printint to stdout
+    def resume(self):
+        self.fd = open('/dev/stdout', "a");
+
+
+    # Print an alert message.
+    def reprint(self, msg):
+        self.fd.write("\r\033[K"+msg);
+
 
     # Print an alert message.
     def alert(self, msg):
@@ -22,12 +38,15 @@ class Smartlog():
         self.rok()
 
 
-    # Print an alert message.
-    def prompt(self, msg):
-        self.fd.write(self.t.magenta("*")), 
-        self.fd.write(self.t.bold(" %s: " % msg)),
+    # Print a prompt message.
+    def prompt(self, msg, opts={}):
+        p = self.t.magenta("*") + self.t.bold(" %s: " % msg);
+        self.fd.write(p);
         self.fd.flush();
-        ret = sys.stdin.readline();
+        if opts['auto']:
+           opts['auto'].prompt = p;
+           ret = opts['auto'].run();
+        else: ret = sys.stdin.readline();
         return ret.rstrip().lstrip();
 
 
@@ -197,7 +216,7 @@ class Smartlog():
 
 
     # Check if environment variable is set
-    def checkvar(self, name):
+    def checkenvvar(self, name):
         val = os.getkey(name)
         str = ' '.join(["Checking if variable",name,"is set"])
         self.log(str)
@@ -207,30 +226,58 @@ class Smartlog():
             self.fail()
 
 
+    # opts is a dictionary loaded with info:
+    #      'log'  : 'what the function is doing',
+    #      'ok'   : 'success message',
+    #      'fail' : 'failure message'
+    def exlog(self, callback, args=None, opts={}):
+        if 'log' in opts.keys():
+           self.logn(opts['log']);
+        ret = False;
+        try:
+           if args:
+              ret = callback(args);
+           else: ret = callback();
+           if 'ok' in opts.keys():
+              self.info(opts['ok']);
+        except Exception as e:
+           self.fail();
+           if 'fail' in opts.keys():
+              self.alert(opts['fail']);
+              self.alert(e);
+        return ret;
+
+
+
     # Gather data into a dictionary, line by line,
     # with prompts
-    def gather(self, keys, xs=[], d={}):
-        l = max([len(k) for k in keys]);
+    def gather(self, keys, xs=[], d={}, opts={
+       'overwrite' : True
+      }
+    ):
+        keys = list(keys);
+        maxlength = max([len(key) for key in keys]);
         i = 0;
         j = 0;
-        # xs is an optional starter list we can (partially)
-        # load from
+        # Gather from xs
         for i in range(len(xs)):
-            key = keys[i];
-            sp = ' ' * (l - len(key));
-            x = self.log("%s%s  : %s" % (key, sp, x));
+            spaces = ' ' * (maxlength - len(keys[i]));
             if i >= len(keys):
                self.warn("More inputs than keys");
                return d;
-            d[i] = x;
+            d[keys[i]] = xs[i];
+
+        # Gather remaining keys from here
         for j in range(i, len(keys)):
             key = keys[j];
-            sp = ' ' * (l - len(key));
+            spaces = ' ' * (maxlength - len(key));
+            x = None;
             if key in d.keys():
-               self.info("%s%s  : %s" % (key, sp, d[key]));
-            x = self.prompt("%s%s  " % (key, sp));
-            if not x: pass;
-            else:     d[key] = x;
+               self.info("%s%s  : %s" % (key, spaces, d[key]));
+               if opts['overwrite']:
+                  x = self.prompt("%s%s  " % (key, spaces));
+            else: x = self.prompt("%s%s  " % (key, spaces));
+            if x: d[key] = x;
         return d;
 
 
@@ -241,14 +288,14 @@ class Smartlog():
     #   keys - keys to gather, in order
     #   y    - starter list
     #
-    def gatherwords(self, keys, xs=None, d={}):
-        l = max([len(k) for k in keys]);
+    def gatherwords(self, keys, xs=None, d={}, opts={}):
+        maxlength = max([len(key) for key in keys]);
         i = 0;
         while True:
             # Columnate the keys and prompts with spaces (sp)
-            sp = ' ' * (l - len(keys[i]));
+            spaces = ' ' * (maxlength - len(keys[i]));
             if not xs:
-              x = self.prompt("%s%s  " % (keys[i], sp));
+              x  = self.prompt("%s%s  " % (keys[i], spaces));
               xs = x.split(" ");
             n = i + len(xs);
             k = 0;
@@ -264,20 +311,25 @@ class Smartlog():
         return d;
 
 
-    def tabulate(self, keys, data):
-        colwidth  = 10;
-        colspace  = 2;
+    # Print a table
+    def tabulate(self, keys, data, opts={
+        'colwidth' : 12,
+        'colspace' : 1,
+    }):
+        colwidth=opts['colwidth'];
+        colspace=opts['colspace'];
         textwidth = colwidth - colspace;
-        for k in keys:
-            nsp = colspace if textwidth < len(k) else colwidth-len(k)
-            sp  = ' ' * nsp;
-            self.fd.write(self.t.yellow("%s%s" % (k[:textwidth], sp)));
+        for key in keys:
+            numspaces = colspace if textwidth < len(key) else colwidth-len(key)
+            spaces    = ' ' * numspaces;
+            self.fd.write(self.t.yellow("%s%s" % (key[:textwidth], spaces)));
         self.fd.write("\n");
         for row in data:
-            for k in keys:
-                el = str(row[k]);
-                nsp = colspace if textwidth < len(el) else colwidth-len(el)
-                sp = ' ' * nsp;
-                self.fd.write("%s%s" % (el[:textwidth], sp));
+            for key in keys:
+                element   = str(row[key]);
+                numspaces = colspace if textwidth < len(element) else colwidth-len(element)
+                spaces    =  ' ' * numspaces;
+                self.fd.write("%s%s" % (element[:textwidth], spaces));
             self.fd.write("\n");
+
 

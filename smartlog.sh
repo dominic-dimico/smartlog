@@ -7,7 +7,7 @@ set -e
 
 
 LOGDIR=~/.smartlog
-SILENT=false
+SILENT=true
 if [ ! -d $LOGDIR ]
 then
   mkdir $LOGDIR
