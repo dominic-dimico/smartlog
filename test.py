@@ -1,10 +1,12 @@
 import smartlog
+import time 
+import os
 
-term = smartlog.Smartlog();
+log = smartlog.Smartlog();
+#os.mkfifo('~/.smartlog.fifo');
+log.outfile = open('~/.smartlog.fifo', 'w');
 
-term.log("Hey");
-term.ok();
-
-term.lognok("Hey");
-
-term.logok("Hey");
+while True:
+      time.sleep(1);
+      log.info("Hello!");
+      log.outfile.flush();
