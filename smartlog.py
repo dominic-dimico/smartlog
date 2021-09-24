@@ -75,7 +75,7 @@ class Smartlog():
         try:    self.infile  = sys.stdin;
         except: print("Could not set stdin");
         try:    self.outfile = open(self.files['outfile'], "a");
-        except: print("File Exception");
+        except: self.outfile = sys.stdout; #print("File Exception");
         else:   self.t = Terminal(stream=self.outfile, force_styling=True);
 
 
