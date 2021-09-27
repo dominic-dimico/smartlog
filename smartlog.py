@@ -562,6 +562,7 @@ class Smartlog():
         except QuietException as e: pass; #self.ok();
         except  WarnException as e: self.warn(e.message);
         except AlertException as e: self.alert(opts['fail']);
+        except OverFlowError  as e: pass;
         except      Exception as e: 
                     if args: self.print(args);
                     traceback.print_exc();
