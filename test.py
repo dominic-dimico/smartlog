@@ -1,26 +1,26 @@
-import smartlog
+#import smartlog
+import selector
 import pprint
-import re
-import time
-
-log = smartlog.Smartlog();
 
 
-#z = log.xselector([
-#  {'id':1, 'user':'dominic', 'color': 'red'},
-#  {'id':2, 'user':'spike',   'color': 'blue'},
-#  {'id':3, 'user':'clare',   'color': 'magenta'},
-#  {'id':4, 'user':'lucas',   'color': 'green'},
-#])
-#
-#cs = z.edit();
-#print(cs);
 
-for i in range(100):
-    log.progress(i, 100);
-    time.sleep(.1);
 
-#s = log.selector(
+z = selector.DataSelector([
+  {'id':1, 'user':'dominic', 'color': 'red'},
+  {'id':2, 'user':'spike',   'color': 'blue'},
+  {'id':3, 'user':'clare',   'color': 'magenta'},
+  {'id':4, 'user':'lucas',   'color': 'green'},
+])
+
+cs = z.edit();
+print(cs);
+
+#import time
+#for i in range(100):
+#    log.progress(i, 100);
+#    time.sleep(.1);
+
+#s = selector.Selector(
 #   {'food':'chocolate', 'color':'red', 'fruit':'strawberry'}
 #);
 #y = s.edit();
@@ -40,6 +40,7 @@ for i in range(100):
 
 
 
+#import re
 #timewords = '(now|yesterday|tomorrow|at|noon|midnight|midnight|am|pm|[0-9]|\:|\s)+'
 #
 #w  = {'when': re.compile(timewords)}
