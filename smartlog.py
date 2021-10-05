@@ -126,7 +126,7 @@ class Smartlog():
 
 
     def asterisk(self, color):
-        self.write(self.incolor(color, "*")), 
+        self.write(self.incolor(color, "* ")), 
         if self.printname:
            self.write( self.incolor(color, "[") 
                      + self.incolor('white', self.name)
