@@ -73,6 +73,8 @@ class Smartlog():
           'pipefile' : "~/config/smartlog/fifo",
         }):
         self.files = args;
+        self.name = "";
+        self.printname = False;
         self.load();
 
 
@@ -84,6 +86,8 @@ class Smartlog():
         try:    self.outfile = open(self.files['outfile'], "a");
         except: self.outfile = sys.stdout; #print("File Exception");
         else:   self.t = Terminal(stream=self.outfile, force_styling=True);
+        try:    self.sockets = self.files['sockets']
+        except: pass;
 
 
     # Create a pipe
@@ -121,9 +125,19 @@ class Smartlog():
       return msg
 
 
+    def asterisk(self, color):
+        self.write(self.incolor(color, "*")), 
+        if self.printname:
+           self.write( self.incolor(color, "[") 
+                     + self.incolor('white', self.name)
+                     + self.incolor(color, "]")
+                     + self.incolor('white', ": ")
+           );
+
+
     # Print an alert message.
     def alert(self, msg):
-        self.write(self.t.red("*")), 
+        self.asterisk('red');
         self.write(self.t.bold(" Alert:")),
         self.write(" %s!" % msg),
         self.rok()
@@ -131,7 +145,7 @@ class Smartlog():
 
     # Print an alert message.
     def yesno(self, msg):
-        self.write(self.t.magenta("*")), 
+        self.asterisk('purple');
         self.write(self.t.bold(" %s? (y/n): " % msg)),
         self.outfile.flush();
         ret = self.infile.readline();
@@ -142,7 +156,7 @@ class Smartlog():
 
     # Print a WARN message.
     def warn(self, msg):
-        self.write(self.t.yellow("*")), 
+        self.asterisk('yellow');
         self.write(self.t.bold(" Warning:")),
         self.write(" %s." % msg),
         self.warnok()
@@ -154,28 +168,28 @@ class Smartlog():
         
         "You can set it with the %s flag."
         """
-        self.write(self.t.blue("*")), 
+        self.asterisk('blue');
         self.write(" You can set it with the %s flag." % msg),
         self.infook()
 
 
     # Print an INFO message.
     def tip(self, msg):
-        self.write(self.t.blue("*")), 
+        self.asterisk('blue');
         self.write(" %s." % msg),
         self.infook()
 
 
     # Print an INFO message.
     def info(self, msg):
-        self.write(self.t.blue("*")), 
+        self.asterisk('blue');
         self.write(" %s" % msg),
         self.infook()
 
 
     # Print an log message, but no OK or FAIL box.
     def log(self, msg):
-        self.write(self.t.green("*")), 
+        self.asterisk('green');
         self.write(" %s... " % msg),
 
 
@@ -952,7 +966,6 @@ class Smartlog():
                 msg = "%s%s" % (element[:textwidth], spaces);
                 self.write(self.incolor(color,msg));
             self.write("\n");
-
 
 
     def print_element(self, spec):
