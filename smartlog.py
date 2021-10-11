@@ -1,13 +1,16 @@
 from   blessings import Terminal
 import sys
+import inspect
 import os
 import traceback
 import pprint
 import pandas;
+import traceback;
 import numpy;
 import getch;
 format_ = format
  
+
 
 
 pandas.set_option('mode.chained_assignment', None)
@@ -20,44 +23,46 @@ class AlertException(Exception):
       def __init__(self, message):
           self.message = message;
 
+class FailException(Exception):
+
+      def caller(self, fr):
+          name   = fr.f_code.co_name;
+          back   = fr.f_back.f_locals;
+          local  = fr.f_locals;
+          globl  = fr.f_globals;
+          for get in (
+                 lambda:globl[name],
+                 lambda:getattr(local['self'], name),
+                 lambda:getattr(local['cls'], name),
+                 lambda:back[name], # nested
+                 lambda:back['func'],  # decorators
+                 lambda:back['meth'],
+                 lambda:back['f'],
+          ):
+              try:    func = get()
+              except: pass
+              else:   
+                 if func.__code__ == co: 
+                    return func;
+          return None;
+
+      def __init__(self, log):
+          log.fail();
+          import inspect
+          traceback.print_exc();
+          try:
+             import sys
+             frame  = sys._getframe(1)
+             local  = frame.f_locals;
+             func   = self.caller(frame);
+          except: print("couldn't obtain caller");
+          from ptpython.ipython import embed; embed(local=locals())
 
 class WarnException(Exception):
       def __init__(self, message):
           self.message = message;
 
 
-class ArgumentError(Exception):
-
-      def introspect(self):
-          message = "";
-          alert   = "";
-          self.errors = 0;
-          self.alerts = [];
-          for key in self.default.keys():
-            if isinstance(self.default[key], dict):
-              if 'error' in self.default[key]:
-                 message      += '\nError: '     + key + ' '   + self.default[key]['error'];
-                 alert        +=                   key + ' '   + self.default[key]['error'];
-                 if 'log'     in self.default[key]:
-                     message  += '\n  name:    ' + key + ' - ' + self.default[key]['log'];
-                 if 'default' in self.default[key]:
-                     message  += '\n  default: '               + str(self.default[key]['default']);
-                 if 'type'    in self.default[key]:
-                     message  += '\n  type:    '               + str(self.default[key]['type'])
-                 if 'actions' in self.default[key]:
-                     message  += '\n  actions: ' + ",".join(     self.default[key]['actions'])
-                 self.errors  = self.errors + 1;
-                 self.alerts += [alert];
-          self.message = message;
-          return message;
-
-      def __init__(self, default):
-          self.default = default; 
-          self.introspect();
-
-
-
-# TODO: enable pipes
 class Smartlog():
 
 
@@ -68,53 +73,54 @@ class Smartlog():
 
 
     def __init__(self, args={
-          'outfile'  : "/dev/stdout",
-          'infile'   : "/dev/stdin",
-          'pipefile' : "~/config/smartlog/fifo",
+          'outfile'   : "/dev/stdout",
+          'infile'    : "/dev/stdin",
+          'pipefile'  : "~/config/smartlog/fifo",
+          'name'      : '',
+          'printname' : False,
         }):
-        self.files = args;
-        self.name = "";
-        self.printname = False;
-        self.load();
+        for key in args:
+            if 'file' not in key:
+               setattr(self, key, args[key]);
+        self._load();
 
 
-
-    # Continue printint to stdout
-    def load(self):
-        try:    self.infile  = sys.stdin;
-        except: print("Could not set stdin");
-        try:    self.outfile = open(self.files['outfile'], "a");
-        except: self.outfile = sys.stdout; #print("File Exception");
-        else:   self.t = Terminal(stream=self.outfile, force_styling=True);
-        try:    self.sockets = self.files['sockets']
-        except: pass;
+    def _load(self):
+        """ Load args"""
+        try:     self.infile  = open(self.args['infile'], 'r');
+        except:  self.infile  = sys.stdin;
+        try:     self.outfile = open(self.args['outfile'], "a");
+        except:  self.outfile = sys.stdout;
+        finally: self.t = Terminal(stream=self.outfile, force_styling=True);
 
 
-    # Create a pipe
-    def pipe(self):
-        try:    os.mkfifo(self.files['pipefile']);
-        except: print("Pipe creation failed!");
+    def _pipe(self):
+        """ Create a pipe"""
+        try:    os.mkfifo(self.args['pipefile']);
+        except: traceback.print_exc();
         else:   self.outfile = open('~/.smartlog.fifo', 'w');
 
 
-    # Write to outfile if quiet is not set
     def write(self, msg):
+        """Write to outfile"""
         if not self.quiet:
            self.outfile.write(msg);
            self.outfile.flush();
 
-    # Print an alert message.
+
     def previous_line(self):
+        """Move cursor to previous line"""
         self.write("\033[F");
 
 
-    # Print an alert message.
     def reprint(self, msg):
+        """Re-print a line, e.g. for progress bar"""
         self.write("\r\033[K"+msg);
         self.outfile.flush();
 
 
     def incolor(self, color, msg):
+      """ Print *msg* in *color*, return *msg*"""
       if   color == "red":    msg = self.t.red(msg)
       elif color == "yellow": msg = self.t.bold_yellow(msg)
       elif color == "green":  msg = self.t.green(msg)
@@ -124,8 +130,27 @@ class Smartlog():
       elif color == "white":  msg = msg;
       return msg
 
+    def oncolor(self, color, msg):
+      """ Print *msg* in *color*, return *msg*"""
+      if   color == "red":    msg = self.t.on_red(msg)
+      elif color == "yellow": msg = self.t.on_yellow(msg)
+      elif color == "green":  msg = self.t.on_green(msg)
+      elif color == "blue":   msg = self.t.on_blue(msg)
+      elif color == "purple": msg = self.t.on_magenta(msg)
+      elif color == "black":  msg = self.t.on_black(msg)
+      elif color == "white":  msg = self.t.on_white(msg);
+      return msg
+
+    def colored(self, in_color, on_color, msg):
+      """ Print *msg* in *color*, return *msg*"""
+      return self.incolor(
+         in_color,
+         self.oncolor(on_color, msg)
+      );
+
 
     def asterisk(self, color):
+        """ Print asterisk in *color*, and name if set"""
         self.write(self.incolor(color, "* ")), 
         if self.printname:
            self.write( self.incolor(color, "[") 
@@ -135,8 +160,8 @@ class Smartlog():
            );
 
 
-    # Print an alert message.
     def alert(self, msg):
+        """ Print alert *msg*"""
         self.asterisk('red');
         self.write(self.t.bold(" Alert:")),
         self.write(" %s!" % msg),
@@ -145,6 +170,7 @@ class Smartlog():
 
     # Print an alert message.
     def yesno(self, msg):
+        """ Present prompt asking yes or no"""
         self.asterisk('purple');
         self.write(self.t.bold(" %s? (y/n): " % msg)),
         self.outfile.flush();
@@ -156,6 +182,7 @@ class Smartlog():
 
     # Print a WARN message.
     def warn(self, msg):
+        """ Display warn *msg* """
         self.asterisk('yellow');
         self.write(self.t.bold(" Warning:")),
         self.write(" %s." % msg),
@@ -163,49 +190,44 @@ class Smartlog():
 
 
     def optip(self, msg):
-        """
-        Give a tip that says:
-        
-        "You can set it with the %s flag."
-        """
+        """ Give a tip that says: "You can set it with the %s flag." """
         self.asterisk('blue');
         self.write(" You can set it with the %s flag." % msg),
         self.infook()
 
 
-    # Print an INFO message.
     def tip(self, msg):
+        """ Display info *msg* """
         self.asterisk('blue');
         self.write(" %s." % msg),
         self.infook()
 
 
-    # Print an INFO message.
     def info(self, msg):
+        """ Display info *msg* """
         self.asterisk('blue');
         self.write(" %s" % msg),
         self.infook()
 
 
-    # Print an log message, but no OK or FAIL box.
     def log(self, msg):
+        """ Display log *msg* """
         self.asterisk('green');
         self.write(" %s... " % msg),
 
 
-    # Print an log message, but no OK or FAIL box.
     def logn(self, msg):
+        """ Display log *msg*, no ellipse """
         self.log(msg);
         self.write("\n");
 
 
-    # Print an log message, with OK.
     def logok(self, msg):
+        """ Display log *msg*, with the OK flag """
         self.log(msg);
         self.ok();
 
 
-    # Print an OK box.
     def ok(self, msg=""):
         self.write(msg);
         with self.t.location(x=self.t.width-10):
@@ -216,8 +238,8 @@ class Smartlog():
         #self.write(str(self.t.width)+"\n")
 
 
-    # Print a FAIL box.
     def fail(self, msg=""):
+        """ Print a FAIL box """
         self.write(msg);
         with self.t.location(x=self.t.width-10):
           self.write("[ "),
@@ -226,8 +248,8 @@ class Smartlog():
         self.write("\n")
 
 
-    # Print a yellow OK box.
     def yok(self, msg=""):
+        """ Print a yellow OK box """
         self.write(msg);
         with self.t.location(x=self.t.width-10):
           self.write("[  "),
@@ -236,8 +258,8 @@ class Smartlog():
         self.write("\n")
 
 
-    # Print a red OK box.
     def rok(self, msg=""):
+        """ Print a red OK box """
         self.write(msg);
         with self.t.location(x=self.t.width-10):
           self.write("[  "),
@@ -246,8 +268,8 @@ class Smartlog():
         self.write("\n")
 
 
-    # Print a WARN box.
     def warnok(self, msg=""):
+        """ Print a WARN box """
         self.write(msg);
         with self.t.location(x=self.t.width-10):
           self.write("[ "),
@@ -256,8 +278,8 @@ class Smartlog():
         self.write("\n")
 
 
-    # Print an INFO box.
     def infook(self, msg=""):
+        """ Print an INFO box """
         self.write(msg);
         with self.t.location(x=self.t.width-10):
           self.write("[ "),
@@ -266,8 +288,8 @@ class Smartlog():
         self.write("\n")
 
 
-    # Determine if program exists.
     def which(self, program):
+        """ Determine if program exists """
         str = ' '.join(["Checking location of",program])
         self.log(str)
         def is_exe(self, fpath):
@@ -288,6 +310,7 @@ class Smartlog():
         return None
 
     def progress(self, i, n, status=" OK "):
+        """ Show progress bar """
         m = self.t.width - 20;
         p = int((i/n) * 100);
         neqs   = int(float(i/n)*m);
@@ -297,8 +320,8 @@ class Smartlog():
         else:            ok=self.t.green_bold(status);
         self.reprint("[ %s>%s%3s%% ] [ %s ]" % (eqs, spaces, p, ok))
 
-    # Check if directory exists.
     def checkdir(self, name):
+        """ Check if directory *name* exists """
         str = ' '.join(["Checking if directory",name,"exists"])
         self.log(str)
         if os.path.isdir(name):
@@ -309,8 +332,8 @@ class Smartlog():
             return False
 
 
-    # Check if file exists.
     def checkfile(self, name):
+        """ Check if file *name* exists """
         str = ' '.join(["Checking if file",name,"exists"])
         self.log(str)
         if os.path.isfile(name):
@@ -321,8 +344,8 @@ class Smartlog():
             return False
 
 
-    # Check if environment variable is set
     def checkenvvar(self, name):
+        """ Check if environment variable *name* is set """
         val = os.getkey(name)
         str = ' '.join(["Checking if variable",name,"is set"])
         self.log(str)
@@ -332,253 +355,12 @@ class Smartlog():
             self.fail()
 
 
-    def funcheck(self, args, preproc, function, postproc):
-        args = self.argcheck(args, preproc);
-        args = function(args);
-        args = self.argcheck(args, postproc);
-        return args;
-
-
-    def copyback(self, args, keys, function):
-        return self.funcheck(
-             args,
-            {'backup' : keys},
-             function,
-            {'restore' : keys}
-        );
-
-
-
-    # Check given dictionary against default
-    # TODO: this is more than a validator at this point...
-    def argcheck(self, user, default):
-
-
-        def add_error(default, key, error):
-            if 'error' not in default[key]: 
-                              default[key]['error']  =        error;
-            else:             default[key]['error'] += '; ' + error;
-            return            default;
-
-
-        from copy import copy
-        def backup(user, key, ext='.1'):
-            if ext != '.1':
-               user[key+ext] = copy(user[key]);
-               return user;
-            index = 1;
-            backup_key = key + ext;
-            while backup_key in user:
-                  backup_key = key + "." + str(index);
-                  index      = index + 1;
-            user[backup_key] = copy(user[key]);
-            return user;
-
-
-        def restore(user, key, ext='.1'):
-            if ext != '.1':
-                user[key] = user[key+ext];
-                user.pop(backup_key)
-                return user;
-            index = 1;
-            next_backup_key = key + ext;
-            last_backup_key = key;
-            while next_backup_key in user:
-                  index           = index + 1;
-                  last_backup_key = next_backup_key;
-                  next_backup_key = key + "." + str(index);
-            if last_backup_key in user and last_backup_key != key:
-                user[key] = copy(user[last_backup_key]);
-                user.pop(last_backup_key)
-            else: return None;
-            return user;
-    
-
-        def default_actions(user, default, key):
-
-            if 'actions' not in default[key]:
-               default[key]['actions'] = [];
-
-            actions = [
-               'log',
-               'restore', 'backup',  
-               'default', 'overwrite', 
-               'clear',   'delete', 
-               'gather',  
-               'type',    
-               'require', 
-            ];
-
-            for action in actions:
-                if (((action in default and key in default[action])
-                  or (action in default[key])) 
-                 and (action not in default[key]['actions'])):
-                         default[key]['actions'] += [action];
-
-            if 'all' in default:
-               default[key]['actions'] = default['all'] + default[key]['actions'];
-
-            return (user, default);
-
-
-        def do_gather(self, user, default, key):
-            t = str;
-            if 'gather' not in default[key]:
-                  default[key]['gather'] ='maybe';
-            if    default[key]['gather']=="never": return (user, default);
-            elif (default[key]['gather']=="always" or
-                 (default[key]['gather']=="maybe"  and 
-                   key not in user 
-                 )):
-                 if 'type' in default[key]:
-                     t = default[key]['type'];
-                 args = self.gather({
-                           'method': 'linear',
-                           'keys'  : [key],
-                           'data'  : {},
-                           'types' : {key:str(t)},
-                 });
-                 try:    user[key] = (t)(args['data'][key]);
-                 except: user[key] = '';
-            return (user, default)
-
-
-        def do_actions(self, user, default, key):
-            (user, default) = default_actions(user, default, key);
-            for action in default[key]['actions']:
-                if action == "require":
-                   self.log("Requiring %s" % (key));
-                   if key not in user:
-                        self.fail("not found");
-                        default = add_error(default, key, "required");
-                        break;
-                   else: self.ok();
-                elif action == "gather":
-                     (user, default) = do_gather(self, user, default, key);
-                elif action == "overwrite":
-                         self.log("Overwriting %s" % (key));
-                         user[key] = default[key]['overwrite'];
-                         self.ok();
-                elif action == "default":
-                     if key not in user: 
-                         self.log("Defaulting %s" % (key));
-                         if 'default' in default[key]:
-                            user[key] = default[key]['default'];
-                            self.ok(str(default[key]['default']));
-                         else: self.fail("no default field supplied");
-                elif action == "restore":
-                        self.log("Restoring %s" % (key));
-                        if 'restore' in default[key]:
-                              restored = restore(user, key, default[key]['restore']);
-                        else: restored = restore(user, key);
-                        if not restored: self.fail("no backup");
-                        else: 
-                          user = restored;
-                          self.ok(str(user[key]));
-                elif action == "clear":
-                        self.log("Clearing %s" % (key));
-                        if isinstance(user[key], str):
-                           user[key] = '';
-                        elif isinstance(user[key], dict):
-                           user[key] = {}; 
-                        elif isinstance(user[key], list):
-                           user[key] = []; 
-                        elif isinstance(user[key], tuple):
-                           user[key] = tuple(); 
-                        elif isinstance(user[key], int):
-                           user[key] = 0; 
-                        elif isinstance(user[key], float):
-                           user[key] = 0.0; 
-                        else: 
-                           user[key] = None;
-                        self.ok();
-                elif action == "delete":
-                     self.log("Deleting %s" % (key));
-                     if key in user: 
-                        user.pop(key);
-                        self.ok();
-                     else: self.fail("no key to delete")
-                elif action == "log":
-                     if 'log' in default[key]:
-                        self.info(key+": "+default[key]['log']);
-                elif action == "backup":
-                     self.log("Backing up %s" % (key));
-                     if key in user: 
-                        if 'backup' in default[key]:
-                              user = backup(user, key, default[key]['backup']);
-                        else: user = backup(user, key);
-                        self.ok();
-                     else: self.fail();
-                elif action == "type":
-                     self.log("Type-checking %s" % (key));
-                     if 'type' in default[key]: 
-                         if key in user:
-                            if not isinstance(user[key], default[key]['type']):
-                               try:   
-                                   user[key] = (default[key]['type'])(user[key]);
-                                   self.ok("converted");
-                               except Exception: 
-                                   default = add_error(default, key, "type");
-                                   self.fail("exception occured");
-                                   break;
-                            else: self.ok("ok");
-                         else: self.fail('key not found');
-                     else: self.fail('type not set');
-            return (user, default);
-
-
-        def extract_keys(self, user, default):
-            keys = list(default.keys());
-            morekeys = [];
-            for key in keys:
-                if isinstance(default[key], list):
-                   for akey in default[key]:
-                       if akey not in morekeys:
-                          morekeys += [akey];
-            for key in morekeys:
-                if key not in default:
-                   default[key] = {};
-            return (user, default);
-
-
-        def process(self, user, default):
-            keys = list(default.keys());
-            for key in keys:
-                if isinstance(default[key], dict):
-                   (user, default) = do_actions(self, user, default, key);
-            return (user, default);
-
-
-        def check_errors(self, user, default):
-            ae = ArgumentError(default);
-            for i in range(ae.errors):
-                self.alert(ae.alerts[i]);
-            return ae;
-
-
-        if not isinstance(user, dict):
-           raise ArgumentError({'args':{'error':'type'}});
-
-        if not isinstance(default, dict):
-           raise ArgumentError({'default':{'error':'type'}});
-
-
-        quiet = self.quiet;
-        self.quiet = True;
-        if 'quiet' in default and not default['quiet']:
-           self.quiet = False;
-
-        (user, default) = extract_keys(self, user, default);
-        (user, default) =      process(self, user, default);
-        ae              = check_errors(self, user, default);
-
-        self.quiet = False;
-        if ae.errors>0: 
-           raise ae;
-
-        return user;
-
-               
+    #######################################
+    #! Compatibility with toolbelt argcheck
+    #######################################
+    def argcheck(self, user, default):               
+        from toolbelt import argcheck;
+        return argcheck.argcheck(user, default, log=self);
 
 
     def exlog(self, callback, args, opts={}):
@@ -591,7 +373,7 @@ class Smartlog():
         try:
            self.logn(opts['log']);
            if args: ret = callback(args);
-           else:    ret = callback(args);
+           else:    ret = callback();
         except  WarnException as e: self.warn(e.message);
         except AlertException as e: self.alert(opts['fail']);
         except OverFlowError  as e: pass;
@@ -604,12 +386,13 @@ class Smartlog():
 
 
 
-    # Print a prompt message.
     def prompt(self, args={
+        """ Print a prompt message."""
       'message' : ''
     }):
 
-        import toolbelt;
+        from toolbelt import editors;
+        from toolbelt import quickdate;
         if 'message' in args: 
               message = args['message'];
         else: message = args;
@@ -622,7 +405,7 @@ class Smartlog():
            text = '';
            if 'datum' in args:
               if args['datum']: text = args['datum'];
-           response = toolbelt.editors.vim(text);
+           response = editors.vim(text);
         elif 'auto' in args:
            args['auto'].prompt = p;
            if 'datum' in args and args['datum']:
@@ -642,7 +425,7 @@ class Smartlog():
 
         if 'type' in args:
            if args['type'] == 'datetime':
-              response = toolbelt.quickdate.quickdate(response);
+              response = quickdate.quickdate(response);
            elif args['type'] == 'float':
               response = float(response);
            elif args['type'] == 'int':
@@ -657,229 +440,18 @@ class Smartlog():
 
 
     def selector(self, ls):
-        return self.Selector(self, ls);
+        from smartlog import selector 
+        return selector.Selector(self, ls);
+
 
     def xselector(self, ds):
-        return self.DataSelector(self, ds);
+        from smartlog import selector 
+        return selector.DataSelector(self, ds);
 
 
-    # Gather data into a dict, line by line,
-    # with prompts
     def gather(self, args):
-
-        args = self.argcheck(args, {
-           'argspec' : {'default': {}, 'type':pandas.DataFrame},
-           'keys'    : {'default': [], 'type':list},
-           'xs'      : {'default': [], 'type':list},
-           'data'    : {'default': {}, 'type':dict},
-           'types'   : {'default': {}, 'type':dict},
-        });
-
-        args['maxlength'] = max([len(key) for key in args['keys']]) if args['keys'] else 0;
-        args["keyindex"]  = 0;
-
-        if 'data' not in args['argspec']:
-           args['argspec']['data'] = numpy.nan;
-        if 'span' not in args['argspec']:
-           args['argspec']['span'] = numpy.nan;
-           args['argspec'] = args['argspec'].astype({'span':object})
-
-
-        # Format the info and prompt messages
-        def format(args):
-            args['spaces']  = ' ' * (args['maxlength'] - len(args['keys'][args['keyindex']]));
-            args['message'] = "%s%s  " % (args['keys'][args['keyindex']], args['spaces'])
-            if args['keys'][args['keyindex']] in args['data'].keys():
-               args['datum'] = args['data'][args['keys'][args['keyindex']]];
-               args['info'] = "%s%s  : %s" % (
-                       args['keys'][args['keyindex']], 
-                       args['spaces'],
-                       args['data'][args['keys'][args['keyindex']]]
-                   )
-            return args;
-
-
-        # Gather everything from xs
-        def gatherxs(args):
-            i = args["keyindex"];
-            j = 0;
-            while j < len(args['xs']):
-                if j+i >= len(args['keys']):
-                   #self.warn("More inputs than keys");
-                   args["xs"] = args["xs"][j:];
-                   args["keyindex"] = j+i;
-                   return args;
-                args['data'][args['keys'][j+i]] = args['xs'][j+i];
-                j += 1;
-            args["xs"] = args["xs"][j:];
-            args["keyindex"] = j+i;
-            return args;
-
-
-        # Gather words
-        def gatherwords(args):
-            args = format(args);
-            if 'types' in args:
-               args['type'] = args['types'][args['keys'][args['keyindex']]]
-            args = self.prompt(args);
-            args["xs"] = args["response"].split(" ");
-            args = gatherxs(args);
-            return args;
-
-
-        # Gather a line
-        def gatherline(args):
-            args = format(args);
-            if 'types' in args:
-               if args['keys'][args['keyindex']] in args['types']:
-                  args['type'] = args['types'][args['keys'][args['keyindex']]]
-            if args["keys"][args["keyindex"]] in args['data'].keys():
-               self.info(args['info']);
-               if 'overwrite' in args and not args['overwrite']:
-                  args["keyindex"] += 1;
-                  return args;
-            args = self.prompt(args);
-            if args["response"] != '':
-               args["data"][args["keys"][args["keyindex"]]] = args["response"];
-            return args;
-            
-
-        def trimstring(string, spans):
-            spans = list(set(spans));
-            spans.sort(key=lambda x: x[1], reverse=True);
-            for x in range(len(spans)):
-                (b, e) = spans[x]
-                string = string.replace(string[b:e], "").strip();
-            return string;
-
-
-
-        def gatherpatkey(args, x):
-            import toolbelt;
-            df    = args['argspec'];
-            spec  = df.loc[x,];
-            key   = spec['key']
-            p     = spec['pattern'];
-            q     = spec['exclude'];
-
-            string = str(args['response']);
-            if not pandas.isnull(spec['exclude']):
-                ns = q.finditer(string);
-                spans = []
-                for n in ns:
-                    spans += [n.span(0)];
-                string = trimstring(string, spans);
-            m = p.search(string);
-            if not m: return args;
-            args['data'][key]  = m.group(0);
-            df.loc[x,'data']   = m.group(0);
-            df.at[x,'span']    = m.span(0);
-            if key not in args['keys']: 
-                  args['keys'] += [key];
-            if (('types' in args and key in args['types'] and args['types'][key] == "datetime")
-                  or ('type' in spec and spec['type']=="datetime")):
-                  args['data'][key] = toolbelt.quickdate.quickdate(args['data'][key]);
-                  df.loc[x,'data']  = toolbelt.quickdate.quickdate(df.loc[x,'data']);
-            return args;
-
-
-        def updatekeysleft(args):
-            args['keysleft'] = [];
-            for key in args['patkeys']:
-                if key not in args['excluded']:
-                   args['keysleft'].append(key);
-            return args;
-
-
-        def gatherpats(args):
-            """ Gather data based on regex argspec
-                First gather from xs, then from stdin
-            """
-            df = args['argspec'];
-            args = self.argcheck(args, {
-                'excluded' : {'overwrite': []},
-                'response' : {'overwrite': " ".join(args['xs'])},
-                'patkeys'  : {'overwrite': df['key'].to_list()},
-                'keysleft' : {'overwrite': df['key'].to_list()},
-                'optkeys'  : {'overwrite': df[df['optional']==False]['key'].to_list()},
-            });
-            for x in range(len(df)):
-                args = gatherpatkey(args, x);
-            reqs = df[(df['optional']==False) & (df['data'].isna())];
-            while len(reqs)>0:
-                  key  = reqs.iloc[0]['key'];
-                  args['keyindex'] = args['keys'].index(key);
-                  args = format(args);
-                  args = self.prompt(args);
-                  for x in range(len(df)):
-                      args = gatherpatkey(args, x);
-                  reqs = df[(df['optional']==False) & (df['data'].isna())];
-            spans = [];
-            for x in range(len(df)):
-                if not pandas.isnull(df.loc[x,'span']):
-                   spans += [df.loc[x,'span']];
-            args['response'] = trimstring(args['response'], spans)
-            if args['response'] != '':
-                  args['xs'] = args['response'].split(" ");
-            else: args['xs'] = [];
-            return args;
-
-
-
-        # If we have keys that aren't defined in the argspec,
-        # we can gather them here
-        def gatherleftovers(args):
-            args['keysleft'] = list(
-                set(args['keys']) - set(args['excluded'])
-            );
-            if args['keysleft']:
-               args['keyindex'] = args['keys'].index(args['keysleft'][0]);
-               args['data'][args['keys'][args['keyindex']]] = args['response'];
-            for key in args['keysleft']:
-                args['keyindex'] = args['keys'].index(key);
-                args = gatherline(args);
-            return args;
-
-
-        def combinekeys(args):
-            df = args['argspec'];
-            args['keys'] += [k for k     in list(df['key'].unique())
-                                if k not in   args['keys']];
-            return args;
-
-
-        # If we have argspec, first gather from argspec 
-        if ('argspec' in args and 'method' not in args or 
-            'method' in args and args['method'] != "linear"):
-           #args['argspec']['data'] = numpy.nan;
-           args = combinekeys(args);
-           args = gatherpats(args);
-           return self.argcheck(args, {
-                'excluded' : {'delete': True},
-                'keysleft' : {'delete': True},
-                'patkeys'  : {'delete': True},
-                'optkeys'  : {'delete': True},
-                'maxlength': {'delete': True},
-                'message'  : {'delete': True},
-                'spaces'   : {'delete': True},
-           });
-
-
-        # Gather xs
-        args = gatherxs(args);
-
-        # Gather words
-        if 'words' in args and args['words']:
-           while args["keyindex"] < len(args["keys"]):
-                 args = gatherwords(args);
-
-        # Gather lines
-        else: 
-          while args["keyindex"] < len(args["keys"]):
-                args = gatherline(args);
-                args["keyindex"] += 1;
-
-        return args;
+        from smartlog import gather
+        return gather.gather(args, log=self);
 
 
     def logdata(self, args):
@@ -938,12 +510,9 @@ class Smartlog():
         pprint.pprint(args);
 
 
-    # Print a table
-    # tabspec
-    # {
-    #  'width' : 10,
-    #  'color' : blue,
-    # }
+    ############################################################
+    #! TODO: somehow want to merge draw() from selector and this
+    ############################################################
     def tabulate(self, keys, data, opts={
         'colwidth' : 12,
         'colspace' : 1,
@@ -956,15 +525,21 @@ class Smartlog():
             spaces    = ' ' * numspaces;
             self.write(self.t.yellow("%s%s" % (key[:textwidth], spaces)));
         self.write("\n");
+        colors = ['red', 'blue', 'yellow', 'green', 'purple']
         for row in data:
             if 'color' in row: color = row['color'];
-            else:              color = 'white';
+            elif 'tags' in row and row['tags']:
+                 cs = [c for c in colors if c in row['tags']];
+                 if cs: color = cs[0];
+                 else:  color = 'black';
+            elif 'tags' in row and row['tags']:
+            else: color = 'black';
             for key in keys:
                 element   = str(row[key]);
                 numspaces = colspace if textwidth < len(element) else colwidth-len(element)
                 spaces    =  ' ' * numspaces;
                 msg = "%s%s" % (element[:textwidth], spaces);
-                self.write(self.incolor(color,msg));
+                self.write(self.oncolor(color,msg));
             self.write("\n");
 
 

@@ -173,10 +173,17 @@ class DataSelector(smartlog.Smartlog):
                    self.write(t.yellow(self.space(k)));
               j += 1;
 
+
       def color(self, i):
+          colors = ['blue', 'yellow', 'green', 'purple', 'red']
           if 'color' in self.ks:
              return self.ds[i]['color']
+          elif 'tags' in self.ks[i]:
+             for c in colors:
+                 if c in self.ks[i]['tags']:
+                    return c;
           else: return "white";
+
 
       def draw(self):
           ds = self.ds; c = self.c; n = self.n;
