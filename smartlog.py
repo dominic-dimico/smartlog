@@ -532,7 +532,6 @@ class Smartlog():
                  cs = [c for c in colors if c in row['tags']];
                  if cs: color = cs[0];
                  else:  color = 'black';
-            elif 'tags' in row and row['tags']:
             else: color = 'black';
             for key in keys:
                 element   = str(row[key]);
